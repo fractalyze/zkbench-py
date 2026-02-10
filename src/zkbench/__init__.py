@@ -25,7 +25,7 @@ from zkbench.schema import (
     TestVectors,
 )
 from zkbench.statistics import calculate_confidence_interval, calculate_statistics
-from zkbench.utils import compute_array_hash, get_git_commit_sha
+from zkbench.utils import compute_array_hash, compute_hash, get_git_commit_sha
 
 __all__ = [
     "__version__",
@@ -38,5 +38,6 @@ __all__ = [
     "calculate_confidence_interval",
     "calculate_statistics",
     "compute_array_hash",
+    "compute_hash",
     "get_git_commit_sha",
 ]
