@@ -81,11 +81,93 @@ def _get_cpu_vendor_windows() -> str | None:
     return os.environ.get("PROCESSOR_IDENTIFIER")
 
 
+def get_gpu_vendor() -> str | None:
+    """Detect GPU vendor/model string.
+
+    Returns GPU vendor information from:
+    - macOS: system_profiler SPDisplaysDataType
+    - Linux: nvidia-smi (NVIDIA) or rocm-smi (AMD ROCm)
+
+    Returns:
+        GPU vendor string, or None if detection fails.
+    """
+    system = platform.system()
+
+    if system == "Darwin":
+        return _get_gpu_vendor_macos()
+    elif system == "Linux":
+        result = _get_gpu_vendor_nvidia()
+        if result is not None:
+            return result
+        return _get_gpu_vendor_rocm()
+    return None
+
+
+def _get_gpu_vendor_nvidia() -> str | None:
+    """Get GPU vendor from nvidia-smi on Linux."""
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            return None
+        first_line = result.stdout.strip().split("\n")[0].strip()
+        return first_line if first_line else None
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+
+
+def _get_gpu_vendor_rocm() -> str | None:
+    """Get GPU vendor from rocm-smi on Linux."""
+    try:
+        result = subprocess.run(
+            ["rocm-smi", "--showproductname"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            return None
+        for line in result.stdout.split("\n"):
+            if "Card Series" in line:
+                match = re.search(r"Card Series:\s*(.+)", line)
+                if match:
+                    return match.group(1).strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return None
+
+
+def _get_gpu_vendor_macos() -> str | None:
+    """Get GPU vendor from system_profiler on macOS."""
+    try:
+        result = subprocess.run(
+            ["system_profiler", "SPDisplaysDataType"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            return None
+        for line in result.stdout.split("\n"):
+            if "Chipset Model:" in line:
+                match = re.search(r":\s*(.+)", line)
+                if match:
+                    return match.group(1).strip()
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return None
+
+
 def get_platform_info() -> "Platform":
     """Get current platform information.
 
     Returns:
-        Platform dataclass with os, arch, cpu_count, and cpu_vendor.
+        Platform dataclass with os, arch, cpu_count, cpu_vendor, and
+        gpu_vendor.
     """
     from zkbench.schema import Platform
 
@@ -94,4 +176,5 @@ def get_platform_info() -> "Platform":
         arch=platform.machine(),
         cpu_count=os.cpu_count() or 1,
         cpu_vendor=get_cpu_vendor(),
+        gpu_vendor=get_gpu_vendor(),
     )

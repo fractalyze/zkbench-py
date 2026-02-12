@@ -94,6 +94,7 @@ class Platform:
     arch: str
     cpu_count: int
     cpu_vendor: str | None = None
+    gpu_vendor: str | None = None
 
     @classmethod
     def current(cls) -> Platform:
@@ -107,6 +108,8 @@ class Platform:
         }
         if self.cpu_vendor is not None:
             result["cpu_vendor"] = self.cpu_vendor
+        if self.gpu_vendor is not None:
+            result["gpu_vendor"] = self.gpu_vendor
         return result
 
 
