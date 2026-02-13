@@ -114,7 +114,7 @@ def _get_gpu_vendor_nvidia() -> str | None:
         )
         if result.returncode != 0:
             return None
-        first_line = result.stdout.strip().split("\n")[0].strip()
+        first_line = result.stdout.partition("\n")[0].strip()
         return first_line if first_line else None
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
@@ -136,9 +136,9 @@ def _get_gpu_vendor_rocm() -> str | None:
                 match = re.search(r"Card Series:\s*(.+)", line)
                 if match:
                     return match.group(1).strip()
+        return None
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-    return None
+        return None
 
 
 def _get_gpu_vendor_macos() -> str | None:
@@ -157,9 +157,9 @@ def _get_gpu_vendor_macos() -> str | None:
                 match = re.search(r":\s*(.+)", line)
                 if match:
                     return match.group(1).strip()
+        return None
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-    return None
+        return None
 
 
 def get_platform_info() -> "Platform":
