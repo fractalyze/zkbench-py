@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for zkbench.utils module."""
+
 from __future__ import annotations
 
 from unittest import mock
