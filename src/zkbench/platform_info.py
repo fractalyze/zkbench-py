@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Platform information detection utilities."""
+
 from __future__ import annotations
 
 import os

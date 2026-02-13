@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for zkbench.platform_info module."""
+
 from __future__ import annotations
 
 from unittest import mock
@@ -48,9 +49,7 @@ class TestGetCpuVendor:
             mock.patch("platform.system", return_value="Darwin"),
             mock.patch("subprocess.run") as mock_run,
         ):
-            mock_run.return_value = mock.Mock(
-                stdout="Apple M1 Pro\n", returncode=0
-            )
+            mock_run.return_value = mock.Mock(stdout="Apple M1 Pro\n", returncode=0)
             result = get_cpu_vendor()
         assert result == "Apple M1 Pro"
 
@@ -88,9 +87,7 @@ class TestGetGpuVendor:
     def test_nvidia_detection(self) -> None:
         """Should detect NVIDIA GPU on Linux."""
         with (
-            mock.patch(
-                "zkbench.platform_info.platform.system", return_value="Linux"
-            ),
+            mock.patch("zkbench.platform_info.platform.system", return_value="Linux"),
             mock.patch("subprocess.run") as mock_run,
         ):
             mock_run.return_value = mock.Mock(
@@ -102,9 +99,7 @@ class TestGetGpuVendor:
     def test_multi_gpu_first_only(self) -> None:
         """Should return only the first GPU when multiple are present."""
         with (
-            mock.patch(
-                "zkbench.platform_info.platform.system", return_value="Linux"
-            ),
+            mock.patch("zkbench.platform_info.platform.system", return_value="Linux"),
             mock.patch("subprocess.run") as mock_run,
         ):
             mock_run.return_value = mock.Mock(
@@ -126,9 +121,7 @@ class TestGetGpuVendor:
             )
 
         with (
-            mock.patch(
-                "zkbench.platform_info.platform.system", return_value="Linux"
-            ),
+            mock.patch("zkbench.platform_info.platform.system", return_value="Linux"),
             mock.patch("subprocess.run", side_effect=run_side_effect),
         ):
             result = get_gpu_vendor()
@@ -137,12 +130,8 @@ class TestGetGpuVendor:
     def test_no_gpu_returns_none(self) -> None:
         """Should return None when no GPU tools are available."""
         with (
-            mock.patch(
-                "zkbench.platform_info.platform.system", return_value="Linux"
-            ),
-            mock.patch(
-                "subprocess.run", side_effect=FileNotFoundError("not found")
-            ),
+            mock.patch("zkbench.platform_info.platform.system", return_value="Linux"),
+            mock.patch("subprocess.run", side_effect=FileNotFoundError("not found")),
         ):
             result = get_gpu_vendor()
         assert result is None
@@ -158,14 +147,10 @@ class TestGetGpuVendor:
             "      Type: GPU\n"
         )
         with (
-            mock.patch(
-                "zkbench.platform_info.platform.system", return_value="Darwin"
-            ),
+            mock.patch("zkbench.platform_info.platform.system", return_value="Darwin"),
             mock.patch("subprocess.run") as mock_run,
         ):
-            mock_run.return_value = mock.Mock(
-                stdout=profiler_output, returncode=0
-            )
+            mock_run.return_value = mock.Mock(stdout=profiler_output, returncode=0)
             result = get_gpu_vendor()
         assert result == "Apple M2 Max"
 

@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for zkbench.schema module."""
+
 from __future__ import annotations
 
 import json
@@ -38,9 +39,7 @@ class TestMetricValue:
 
     def test_to_dict_with_bounds(self) -> None:
         """Should include bounds when present."""
-        metric = MetricValue(
-            value=1.5, unit="ms", lower_value=1.0, upper_value=2.0
-        )
+        metric = MetricValue(value=1.5, unit="ms", lower_value=1.0, upper_value=2.0)
         result = metric.to_dict()
         assert result == {
             "value": 1.5,
@@ -61,9 +60,7 @@ class TestTestVectors:
 
     def test_to_dict(self) -> None:
         """Should convert to dict correctly."""
-        vectors = TestVectors(
-            input_hash="abc123", output_hash="def456", verified=True
-        )
+        vectors = TestVectors(input_hash="abc123", output_hash="def456", verified=True)
         result = vectors.to_dict()
         assert result == {
             "input_hash": "abc123",
@@ -122,9 +119,7 @@ class TestPlatform:
 
     def test_to_dict_with_vendor(self) -> None:
         """Should include vendor when present."""
-        platform = Platform(
-            os="linux", arch="x86_64", cpu_count=8, cpu_vendor="Intel"
-        )
+        platform = Platform(os="linux", arch="x86_64", cpu_count=8, cpu_vendor="Intel")
         result = platform.to_dict()
         assert result["cpu_vendor"] == "Intel"
 
@@ -182,9 +177,7 @@ class TestBenchmarkReport:
         report = BenchmarkReport(
             metadata=metadata,
             benchmarks={
-                "bench1": BenchmarkResult(
-                    latency=MetricValue(value=1.0, unit="ms")
-                )
+                "bench1": BenchmarkResult(latency=MetricValue(value=1.0, unit="ms"))
             },
         )
         result = report.to_dict()

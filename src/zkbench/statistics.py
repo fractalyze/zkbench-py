@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Statistical calculations for benchmark data."""
+
 from __future__ import annotations
 
 import math

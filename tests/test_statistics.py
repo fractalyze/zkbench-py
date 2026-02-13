@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for zkbench.statistics module."""
+
 from __future__ import annotations
 
 import math
