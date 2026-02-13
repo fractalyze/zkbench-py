@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from unittest import mock
 
-from zkbench.platform_info import get_cpu_vendor, get_platform_info
+from zkbench.platform_info import get_cpu_vendor, get_gpu_vendor, get_platform_info
 
 
 class TestGetCpuVendor:
@@ -82,6 +82,94 @@ class TestGetCpuVendor:
         assert result is None
 
 
+class TestGetGpuVendor:
+    """Tests for get_gpu_vendor function."""
+
+    def test_nvidia_detection(self) -> None:
+        """Should detect NVIDIA GPU on Linux."""
+        with (
+            mock.patch(
+                "zkbench.platform_info.platform.system", return_value="Linux"
+            ),
+            mock.patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = mock.Mock(
+                stdout="NVIDIA GeForce RTX 4090\n", returncode=0
+            )
+            result = get_gpu_vendor()
+        assert result == "NVIDIA GeForce RTX 4090"
+
+    def test_multi_gpu_first_only(self) -> None:
+        """Should return only the first GPU when multiple are present."""
+        with (
+            mock.patch(
+                "zkbench.platform_info.platform.system", return_value="Linux"
+            ),
+            mock.patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = mock.Mock(
+                stdout="NVIDIA GeForce RTX 4090\nNVIDIA GeForce RTX 3090\n",
+                returncode=0,
+            )
+            result = get_gpu_vendor()
+        assert result == "NVIDIA GeForce RTX 4090"
+
+    def test_fallback_to_rocm(self) -> None:
+        """Should fall back to ROCm when nvidia-smi not found."""
+
+        def run_side_effect(cmd, **kwargs):
+            if cmd[0] == "nvidia-smi":
+                raise FileNotFoundError("nvidia-smi not found")
+            return mock.Mock(
+                stdout="GPU[0]\t\t: Card Series:\t\tAMD Radeon RX 7900 XTX\n",
+                returncode=0,
+            )
+
+        with (
+            mock.patch(
+                "zkbench.platform_info.platform.system", return_value="Linux"
+            ),
+            mock.patch("subprocess.run", side_effect=run_side_effect),
+        ):
+            result = get_gpu_vendor()
+        assert result == "AMD Radeon RX 7900 XTX"
+
+    def test_no_gpu_returns_none(self) -> None:
+        """Should return None when no GPU tools are available."""
+        with (
+            mock.patch(
+                "zkbench.platform_info.platform.system", return_value="Linux"
+            ),
+            mock.patch(
+                "subprocess.run", side_effect=FileNotFoundError("not found")
+            ),
+        ):
+            result = get_gpu_vendor()
+        assert result is None
+
+    def test_macos_detection(self) -> None:
+        """Should detect GPU on macOS."""
+        profiler_output = (
+            "Graphics/Displays:\n"
+            "\n"
+            "    Apple M2 Max:\n"
+            "\n"
+            "      Chipset Model: Apple M2 Max\n"
+            "      Type: GPU\n"
+        )
+        with (
+            mock.patch(
+                "zkbench.platform_info.platform.system", return_value="Darwin"
+            ),
+            mock.patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = mock.Mock(
+                stdout=profiler_output, returncode=0
+            )
+            result = get_gpu_vendor()
+        assert result == "Apple M2 Max"
+
+
 class TestGetPlatformInfo:
     """Tests for get_platform_info function."""
 
@@ -104,3 +192,9 @@ class TestGetPlatformInfo:
         with mock.patch("os.cpu_count", return_value=None):
             result = get_platform_info()
         assert result.cpu_count == 1
+
+    def test_platform_has_gpu_vendor_field(self) -> None:
+        """Should have gpu_vendor attribute on Platform."""
+        from zkbench.schema import Platform
+
+        assert hasattr(Platform, "gpu_vendor")
