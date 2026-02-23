@@ -65,7 +65,7 @@ def compute_array_hash(arr: Any) -> str:
     import numpy as np
 
     if hasattr(arr, "tolist"):
-        data = np.array(arr.tolist(), dtype=np.uint32)
+        data = np.array(arr.tolist(), dtype="<u4")
     else:
-        data = np.array(arr, dtype=np.uint32)
+        data = np.array(arr, dtype="<u4")
     return compute_hash(data.tobytes())
