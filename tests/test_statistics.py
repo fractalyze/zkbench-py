@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Tests for zkbench.statistics module."""
+
 from __future__ import annotations
 
 import math
@@ -60,31 +61,47 @@ class TestCalculateConfidenceInterval:
     """Tests for calculate_confidence_interval function."""
 
     def test_95_confidence(self) -> None:
-        """95% confidence should use z=2.0."""
-        lower, upper = calculate_confidence_interval(10.0, 1.0, confidence=0.95)
-        assert lower == 8.0
-        assert upper == 12.0
+        """95% confidence: mean=100, stdev=10, n=25 → se=2, margin=3.92."""
+        lower, upper = calculate_confidence_interval(100.0, 10.0, 25, confidence=0.95)
+        assert math.isclose(lower, 96.08, rel_tol=1e-9)
+        assert math.isclose(upper, 103.92, rel_tol=1e-9)
 
     def test_99_confidence(self) -> None:
-        """99% confidence should use z=2.576."""
-        lower, upper = calculate_confidence_interval(10.0, 1.0, confidence=0.99)
-        assert math.isclose(lower, 10.0 - 2.576, rel_tol=1e-9)
-        assert math.isclose(upper, 10.0 + 2.576, rel_tol=1e-9)
+        """99% confidence: mean=100, stdev=10, n=25 → se=2, margin=5.152."""
+        lower, upper = calculate_confidence_interval(100.0, 10.0, 25, confidence=0.99)
+        assert math.isclose(lower, 100.0 - 5.152, rel_tol=1e-9)
+        assert math.isclose(upper, 100.0 + 5.152, rel_tol=1e-9)
 
     def test_default_confidence(self) -> None:
         """Default confidence should be 95%."""
-        lower, upper = calculate_confidence_interval(10.0, 1.0)
-        assert lower == 8.0
-        assert upper == 12.0
+        lower, upper = calculate_confidence_interval(100.0, 10.0, 25)
+        assert math.isclose(lower, 96.08, rel_tol=1e-9)
+        assert math.isclose(upper, 103.92, rel_tol=1e-9)
 
     def test_zero_stdev(self) -> None:
         """Zero stdev should return mean as both bounds."""
-        lower, upper = calculate_confidence_interval(5.0, 0.0)
+        lower, upper = calculate_confidence_interval(5.0, 0.0, 10)
         assert lower == 5.0
         assert upper == 5.0
 
+    def test_single_sample(self) -> None:
+        """n=1: se = stdev, margin = 1.96 × stdev."""
+        lower, upper = calculate_confidence_interval(50.0, 5.0, 1, confidence=0.95)
+        assert math.isclose(lower, 40.2, rel_tol=1e-9)
+        assert math.isclose(upper, 59.8, rel_tol=1e-9)
+
+    def test_zero_n_raises(self) -> None:
+        """n=0 should raise ValueError."""
+        with pytest.raises(ValueError, match="greater than zero"):
+            calculate_confidence_interval(100.0, 10.0, 0)
+
+    def test_negative_n_raises(self) -> None:
+        """Negative n should raise ValueError."""
+        with pytest.raises(ValueError, match="greater than zero"):
+            calculate_confidence_interval(100.0, 10.0, -5)
+
     def test_unknown_confidence_defaults_to_95(self) -> None:
-        """Unknown confidence level should default to z=2.0."""
-        lower, upper = calculate_confidence_interval(10.0, 1.0, confidence=0.90)
-        assert lower == 8.0
-        assert upper == 12.0
+        """Unknown confidence level should default to z=1.96."""
+        lower, upper = calculate_confidence_interval(100.0, 10.0, 25, confidence=0.90)
+        assert math.isclose(lower, 96.08, rel_tol=1e-9)
+        assert math.isclose(upper, 103.92, rel_tol=1e-9)
