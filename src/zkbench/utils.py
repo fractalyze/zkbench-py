@@ -39,21 +39,34 @@ def get_git_commit_sha() -> str:
         return "unknown"
 
 
-def compute_array_hash(arr: Any) -> str:
-    """Compute SHA256 hash of array data for verification.
+def compute_hash(data: bytes) -> str:
+    """Compute SHA-256 hash of raw bytes.
 
-    Supports numpy arrays, JAX arrays, and Python lists.
+    Args:
+        data: Raw bytes to hash.
+
+    Returns:
+        64-character lowercase hex string of the SHA-256 digest.
+    """
+    return hashlib.sha256(data).hexdigest()
+
+
+def compute_array_hash(arr: Any) -> str:
+    """Compute SHA-256 hash of array data for verification.
+
+    Supports numpy arrays, JAX arrays, and Python lists. Elements are
+    cast to uint32 and hashed as little-endian bytes.
 
     Args:
         arr: Array-like object with tolist() method or Python list.
 
     Returns:
-        Hexadecimal SHA256 hash string.
+        64-character lowercase hex string of the SHA-256 digest.
     """
     import numpy as np
 
     if hasattr(arr, "tolist"):
-        data = np.array(arr.tolist(), dtype=np.uint32)
+        data = np.array(arr.tolist(), dtype="<u4")
     else:
-        data = np.array(arr, dtype=np.uint32)
-    return hashlib.sha256(data.tobytes()).hexdigest()
+        data = np.array(arr, dtype="<u4")
+    return compute_hash(data.tobytes())

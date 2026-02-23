@@ -20,7 +20,7 @@ from unittest import mock
 
 import numpy as np
 
-from zkbench.utils import compute_array_hash, get_git_commit_sha
+from zkbench.utils import compute_array_hash, compute_hash, get_git_commit_sha
 
 
 class TestGetGitCommitSha:
@@ -52,6 +52,34 @@ class TestGetGitCommitSha:
         assert result == "unknown"
 
 
+class TestComputeHash:
+    """Tests for compute_hash function."""
+
+    def test_empty_input(self) -> None:
+        """SHA-256 of empty bytes."""
+        assert (
+            compute_hash(b"")
+            == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        )
+
+    def test_abc(self) -> None:
+        """SHA-256 of b'abc'."""
+        assert (
+            compute_hash(b"abc")
+            == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        )
+
+    def test_uint32_array_le(self) -> None:
+        """SHA-256 of [1, 2, 3] as uint32 little-endian bytes."""
+        import struct
+
+        data = struct.pack("<III", 1, 2, 3)
+        assert (
+            compute_hash(data)
+            == "4636993d3e1da4e9d6b8f87b79e8f7c6d018580d52661950eabc3845c5897a4d"
+        )
+
+
 class TestComputeArrayHash:
     """Tests for compute_array_hash function."""
 
@@ -79,6 +107,11 @@ class TestComputeArrayHash:
         arr1 = np.array([1, 2, 3], dtype=np.uint32)
         arr2 = np.array([1, 2, 4], dtype=np.uint32)
         assert compute_array_hash(arr1) != compute_array_hash(arr2)
+
+    def test_correct_hash_value(self) -> None:
+        """Should produce the known hash for [1, 2, 3] as little-endian uint32."""
+        expected = "4636993d3e1da4e9d6b8f87b79e8f7c6d018580d52661950eabc3845c5897a4d"
+        assert compute_array_hash([1, 2, 3]) == expected
 
     def test_object_with_tolist_method(self) -> None:
         """Should handle objects with tolist() method."""
