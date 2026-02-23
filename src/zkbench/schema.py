@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Common JSON schema for cross-implementation benchmark results."""
+
 from __future__ import annotations
 
 import json

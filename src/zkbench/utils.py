@@ -13,6 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """Utility functions for benchmarking."""
+
 from __future__ import annotations
 
 import hashlib
