@@ -50,28 +50,40 @@ def calculate_statistics(values: Sequence[float]) -> tuple[float, float]:
 def calculate_confidence_interval(
     mean: float,
     stdev: float,
+    n: int,
     confidence: float = 0.95,
 ) -> tuple[float, float]:
-    """Calculate confidence interval bounds.
+    """Calculate confidence interval bounds for the sample mean.
 
-    Uses a simple z-score approximation:
-    - 95% confidence: z ≈ 1.96 (rounded to 2)
-    - 99% confidence: z ≈ 2.576
+    Uses the formula: mean ± z × (stdev / √n), where stdev / √n is the
+    standard error of the mean.
+
+    z-score approximation:
+    - 95% confidence: z = 1.96
+    - 99% confidence: z = 2.576
 
     Args:
         mean: Sample mean.
         stdev: Sample standard deviation.
+        n: Sample size.
         confidence: Confidence level (default 0.95 for 95%).
 
     Returns:
         Tuple of (lower_bound, upper_bound).
+
+    Raises:
+        ValueError: If n is not positive.
     """
+    if n <= 0:
+        raise ValueError("Sample size n must be greater than zero")
+
     if confidence == 0.95:
-        z = 2.0
+        z = 1.96
     elif confidence == 0.99:
         z = 2.576
     else:
-        z = 2.0
+        z = 1.96
 
-    margin = z * stdev
+    se = stdev / math.sqrt(n)
+    margin = z * se
     return mean - margin, mean + margin

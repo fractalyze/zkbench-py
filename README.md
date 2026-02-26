@@ -38,7 +38,7 @@ metadata = Metadata.create(
 # Record benchmark results
 latency_values = [1.2, 1.3, 1.1, 1.4, 1.2]
 mean, stdev = calculate_statistics(latency_values)
-lower, upper = calculate_confidence_interval(mean, stdev)
+lower, upper = calculate_confidence_interval(mean, stdev, len(latency_values))
 
 result = BenchmarkResult(
     latency=MetricValue(
@@ -79,12 +79,12 @@ print(report.to_json())
 
 ### Functions
 
-| Function                                                 | Description                           |
-| -------------------------------------------------------- | ------------------------------------- |
-| `calculate_statistics(values)`                           | Calculate mean and standard deviation |
-| `calculate_confidence_interval(mean, stdev, confidence)` | Calculate confidence interval bounds  |
-| `compute_array_hash(arr)`                                | Compute SHA256 hash of array data     |
-| `get_git_commit_sha()`                                   | Get current git commit SHA            |
+| Function                                                    | Description                           |
+| ----------------------------------------------------------- | ------------------------------------- |
+| `calculate_statistics(values)`                              | Calculate mean and standard deviation |
+| `calculate_confidence_interval(mean, stdev, n, confidence)` | Calculate confidence interval bounds  |
+| `compute_array_hash(arr)`                                   | Compute SHA256 hash of array data     |
+| `get_git_commit_sha()`                                      | Get current git commit SHA            |
 
 ## License
 
