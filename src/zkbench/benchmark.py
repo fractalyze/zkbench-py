@@ -136,9 +136,12 @@ class JaxBenchmark(abc.ABC):
         else:
             print(json_output)
 
-        for bench in report.benchmarks.values():
+        for name, bench in report.benchmarks.items():
             if bench.test_vectors and not bench.test_vectors.verified:
-                print("ERROR: Test vector verification failed!", file=sys.stderr)
+                print(
+                    f"ERROR: Test vector verification failed for '{name}'!",
+                    file=sys.stderr,
+                )
                 return 1
         return 0
 
