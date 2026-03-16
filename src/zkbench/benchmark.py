@@ -29,8 +29,6 @@ import tracemalloc
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
 
-import jax
-
 from zkbench.schema import (
     BenchmarkReport,
     BenchmarkResult,
@@ -153,6 +151,8 @@ class JaxBenchmark(abc.ABC):
         op: BenchmarkOp, iterations: int, warmup: int
     ) -> BenchmarkResult:
         """Warmup, time, measure memory, verify, and assemble the result."""
+        import jax
+
         fn = op.fn
 
         # Warmup
