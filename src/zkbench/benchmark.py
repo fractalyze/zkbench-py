@@ -185,7 +185,7 @@ class JaxBenchmark(abc.ABC):
             latencies.append(end - start)
 
         mean, stdev = calculate_statistics(latencies)
-        lower, upper = calculate_confidence_interval(mean, stdev)
+        lower, upper = calculate_confidence_interval(mean, stdev, len(latencies))
 
         # Memory
         peak_memory: int | None = None
