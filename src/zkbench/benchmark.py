@@ -101,6 +101,32 @@ class JaxBenchmark(abc.ABC):
 
     def run(self, argv: list[str] | None = None) -> int:
         """Parse CLI args, run all ops, and emit the JSON report."""
+        report = self.run_to_report(argv)
+        json_output = report.to_json()
+
+        args = self._last_args
+        if args and args.output:
+            with open(args.output, "w") as f:
+                f.write(json_output)
+            print(f"Results written to {args.output}")
+        else:
+            print(json_output)
+
+        for name, bench in report.benchmarks.items():
+            if bench.test_vectors and not bench.test_vectors.verified:
+                print(
+                    f"ERROR: Test vector verification failed for '{name}'!",
+                    file=sys.stderr,
+                )
+                return 1
+        return 0
+
+    def run_to_report(self, argv: list[str] | None = None) -> BenchmarkReport:
+        """Parse CLI args, run all ops, and return the report.
+
+        Use this instead of ``run()`` when you need programmatic access to
+        results (e.g. in tests).
+        """
         config = self.get_config()
 
         parser = argparse.ArgumentParser()
@@ -117,6 +143,7 @@ class JaxBenchmark(abc.ABC):
         )
         self.add_custom_args(parser)
         args = parser.parse_args(argv)
+        self._last_args = args
 
         benchmarks: dict[str, BenchmarkResult] = {}
         for op in self.get_ops(args):
@@ -126,24 +153,7 @@ class JaxBenchmark(abc.ABC):
             implementation=config.implementation,
             version=config.version,
         )
-        report = BenchmarkReport(metadata=metadata, benchmarks=benchmarks)
-        json_output = report.to_json()
-
-        if args.output:
-            with open(args.output, "w") as f:
-                f.write(json_output)
-            print(f"Results written to {args.output}")
-        else:
-            print(json_output)
-
-        for name, bench in report.benchmarks.items():
-            if bench.test_vectors and not bench.test_vectors.verified:
-                print(
-                    f"ERROR: Test vector verification failed for '{name}'!",
-                    file=sys.stderr,
-                )
-                return 1
-        return 0
+        return BenchmarkReport(metadata=metadata, benchmarks=benchmarks)
 
     # ------------------------------------------------------------------
     # Internal helpers
