@@ -147,7 +147,20 @@ class JaxBenchmark(abc.ABC):
 
         benchmarks: dict[str, BenchmarkResult] = {}
         for op in self.get_ops(args):
-            benchmarks[op.name] = self._run_single_op(op, args.iterations, args.warmup)
+            # Build unique key from name + metadata (degree, field) so that
+            # multiple ops with the same name but different metadata don't
+            # overwrite each other.  benchmark-action splits on "/" to
+            # extract the operation name for dashboard display.
+            key = op.name
+            if op.metadata:
+                parts = [
+                    v
+                    for k in ("degree",)
+                    if (v := op.metadata.get(k)) is not None
+                ]
+                if parts:
+                    key = f"{op.name}/{'/'.join(parts)}"
+            benchmarks[key] = self._run_single_op(op, args.iterations, args.warmup)
 
         metadata = Metadata.create(
             implementation=config.implementation,
