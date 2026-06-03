@@ -66,6 +66,10 @@ class BenchmarkResult:
     latency: MetricValue | None = None
     memory: MetricValue | None = None
     throughput: MetricValue | None = None
+    # Compile-phase metrics, populated when the op carries a ``lower`` thunk
+    # (see ``BenchmarkOp``). ``latency`` / ``memory`` above are the runtime phase.
+    compile_time: MetricValue | None = None
+    compile_memory: MetricValue | None = None
     iterations: int = 0
     test_vectors: TestVectors | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -78,6 +82,10 @@ class BenchmarkResult:
             result["memory"] = self.memory.to_dict()
         if self.throughput is not None:
             result["throughput"] = self.throughput.to_dict()
+        if self.compile_time is not None:
+            result["compile_time"] = self.compile_time.to_dict()
+        if self.compile_memory is not None:
+            result["compile_memory"] = self.compile_memory.to_dict()
         if self.iterations > 0:
             result["iterations"] = self.iterations
         if self.test_vectors is not None:
