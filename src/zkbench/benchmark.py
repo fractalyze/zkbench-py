@@ -71,6 +71,12 @@ class BenchmarkOp:
             mark on a GPU backend (``Device.memory_stats``) and the host
             ``tracemalloc`` peak otherwise — so a device prove reports the GPU
             memory that actually matters rather than a near-zero host figure.
+        lower: Optional zero-arg thunk returning a ``jax.stages.Lowered`` (e.g.
+            ``lambda: jitted_fn.lower(*args)``). When present, the ``compile``
+            phase times ``lowered.compile()`` and records its device-memory peak
+            as ``compile_time`` / ``compile_memory`` — the compile-side analogue
+            of the runtime ``latency`` / ``memory``. Omit it and the op simply
+            has no compile phase.
     """
 
     name: str
@@ -82,6 +88,7 @@ class BenchmarkOp:
     output_hash_fn: Callable[[], str] | None = None
     verify_fn: Callable[[], bool] | None = None
     measure_memory: bool = True
+    lower: Callable[[], Any] | None = None
 
 
 def _device_peak_bytes(device: Any) -> int | None:
@@ -94,6 +101,11 @@ def _device_peak_bytes(device: Any) -> int | None:
     """
     stats = getattr(device, "memory_stats", lambda: None)() or {}
     return stats.get("peak_bytes_in_use")
+
+
+# --phase values that include each measurement phase.
+_COMPILE_PHASES = ("compile", "both")
+_RUNTIME_PHASES = ("runtime", "both")
 
 
 class JaxBenchmark(abc.ABC):
@@ -156,6 +168,15 @@ class JaxBenchmark(abc.ABC):
             type=int,
             default=config.default_warmup,
         )
+        parser.add_argument(
+            "--phase",
+            choices=("compile", "runtime", "both"),
+            default="both",
+            help=(
+                "phase(s) to measure; run 'compile' (cold cache) and 'runtime' "
+                "(warm cache) as separate invocations for clean per-phase memory"
+            ),
+        )
         self.add_custom_args(parser)
         args = parser.parse_args(argv)
         self._last_args = args
@@ -173,7 +194,9 @@ class JaxBenchmark(abc.ABC):
                 ]
                 if parts:
                     key = f"{op.name}/{'/'.join(parts)}"
-            benchmarks[key] = self._run_single_op(op, args.iterations, args.warmup)
+            benchmarks[key] = self._run_single_op(
+                op, args.iterations, args.warmup, args.phase
+            )
 
         metadata = Metadata.create(
             implementation=config.implementation,
@@ -187,10 +210,40 @@ class JaxBenchmark(abc.ABC):
 
     @staticmethod
     def _run_single_op(
-        op: BenchmarkOp, iterations: int, warmup: int
+        op: BenchmarkOp, iterations: int, warmup: int, phase: str = "both"
     ) -> BenchmarkResult:
-        """Warmup, time, measure memory, verify, and assemble the result."""
+        """Measure the requested phase(s) and assemble the result.
+
+        ``phase`` is ``compile`` (time + device peak of ``lowered.compile()``,
+        no execution), ``runtime`` (warmup + timed execution + memory), or
+        ``both``. The device peak is process-cumulative, so for clean per-phase
+        *memory* run the phases as separate invocations: ``compile`` with a cold
+        compilation cache, ``runtime`` with a warm one. In ``both`` the runtime
+        memory is the max of the two phases.
+        """
         import jax
+
+        device = jax.devices()[0]
+        result_obj = BenchmarkResult(metadata=op.metadata)
+
+        # Compile phase: time the lower->executable compile and its device peak
+        # without executing. In a cold-cache process this isolates the compile
+        # cost (autotuning scratch included, runtime buffers excluded).
+        if phase in _COMPILE_PHASES and op.lower is not None:
+            lowered = op.lower()
+            start = time.perf_counter_ns()
+            lowered.compile()
+            result_obj.compile_time = MetricValue(
+                value=time.perf_counter_ns() - start, unit="ns"
+            )
+            compile_peak = _device_peak_bytes(device)
+            if compile_peak is not None:
+                result_obj.compile_memory = MetricValue(
+                    value=compile_peak, unit="bytes"
+                )
+
+        if phase not in _RUNTIME_PHASES:
+            return result_obj
 
         fn = op.fn
 
@@ -218,7 +271,7 @@ class JaxBenchmark(abc.ABC):
         # Fall back to the host tracemalloc peak on backends without device stats.
         peak_memory: int | None = None
         if op.measure_memory:
-            peak_memory = _device_peak_bytes(jax.devices()[0])
+            peak_memory = _device_peak_bytes(device)
             if peak_memory is None:
                 result = fn()
                 if result is not None:
@@ -230,27 +283,19 @@ class JaxBenchmark(abc.ABC):
                 _, peak_memory = tracemalloc.get_traced_memory()
                 tracemalloc.stop()
 
-        # Throughput
         throughput = op.throughput_count * 1e9 / mean if mean > 0 else 0
-
-        # Test vectors
         output_hash = op.output_hash_fn() if op.output_hash_fn else ""
         verified = op.verify_fn() if op.verify_fn else True
 
-        test_vectors = TestVectors(
+        result_obj.latency = MetricValue(
+            value=mean, unit="ns", lower_value=lower, upper_value=upper
+        )
+        result_obj.throughput = MetricValue(value=throughput, unit=op.throughput_unit)
+        result_obj.iterations = iterations
+        result_obj.test_vectors = TestVectors(
             input_hash=op.input_hash,
             output_hash=output_hash,
             verified=verified,
-        )
-
-        result_obj = BenchmarkResult(
-            latency=MetricValue(
-                value=mean, unit="ns", lower_value=lower, upper_value=upper
-            ),
-            throughput=MetricValue(value=throughput, unit=op.throughput_unit),
-            iterations=iterations,
-            test_vectors=test_vectors,
-            metadata=op.metadata,
         )
         if peak_memory is not None:
             result_obj.memory = MetricValue(value=peak_memory, unit="bytes")

@@ -107,6 +107,17 @@ class TestBenchmarkResult:
         result = BenchmarkResult(iterations=0)
         assert "iterations" not in result.to_dict()
 
+    def test_compile_phase_fields(self) -> None:
+        """Compile-phase metrics serialize when present and are omitted otherwise."""
+        assert "compile_time" not in BenchmarkResult().to_dict()
+        result = BenchmarkResult(
+            compile_time=MetricValue(value=42.0, unit="ns"),
+            compile_memory=MetricValue(value=1024.0, unit="bytes"),
+        )
+        d = result.to_dict()
+        assert d["compile_time"] == {"value": 42.0, "unit": "ns"}
+        assert d["compile_memory"] == {"value": 1024.0, "unit": "bytes"}
+
 
 class TestPlatform:
     """Tests for Platform dataclass."""
