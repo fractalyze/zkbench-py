@@ -67,7 +67,10 @@ class BenchmarkOp:
         verify_fn: Optional callable that returns ``True`` if the result is
             correct.
         measure_memory: If ``False``, the memory metric is omitted from the
-            result.
+            result. When ``True``, the metric is the device-memory high-water
+            mark on a GPU backend (``Device.memory_stats``) and the host
+            ``tracemalloc`` peak otherwise — so a device prove reports the GPU
+            memory that actually matters rather than a near-zero host figure.
     """
 
     name: str
@@ -79,6 +82,18 @@ class BenchmarkOp:
     output_hash_fn: Callable[[], str] | None = None
     verify_fn: Callable[[], bool] | None = None
     measure_memory: bool = True
+
+
+def _device_peak_bytes(device: Any) -> int | None:
+    """Peak device-memory bytes from ``device.memory_stats()``, or ``None`` when
+    the backend doesn't report one (e.g. the CPU backend).
+
+    The peak is process-cumulative — PJRT exposes no portable per-op reset — so in
+    a multi-op run it is the high-water mark up to and including the current op.
+    Run one op per process for a strictly isolated per-op number.
+    """
+    stats = getattr(device, "memory_stats", lambda: None)() or {}
+    return stats.get("peak_bytes_in_use")
 
 
 class JaxBenchmark(abc.ABC):
@@ -154,9 +169,7 @@ class JaxBenchmark(abc.ABC):
             key = op.name
             if op.metadata:
                 parts = [
-                    v
-                    for k in ("degree",)
-                    if (v := op.metadata.get(k)) is not None
+                    v for k in ("degree",) if (v := op.metadata.get(k)) is not None
                 ]
                 if parts:
                     key = f"{op.name}/{'/'.join(parts)}"
@@ -200,18 +213,22 @@ class JaxBenchmark(abc.ABC):
         mean, stdev = calculate_statistics(latencies)
         lower, upper = calculate_confidence_interval(mean, stdev, len(latencies))
 
-        # Memory
+        # Memory: prefer the device high-water mark (the warmup + timing loops
+        # above have already exercised the op, so memory_stats holds its peak).
+        # Fall back to the host tracemalloc peak on backends without device stats.
         peak_memory: int | None = None
         if op.measure_memory:
-            result = fn()
-            if result is not None:
-                jax.block_until_ready(result)
-            tracemalloc.start()
-            result = fn()
-            if result is not None:
-                jax.block_until_ready(result)
-            _, peak_memory = tracemalloc.get_traced_memory()
-            tracemalloc.stop()
+            peak_memory = _device_peak_bytes(jax.devices()[0])
+            if peak_memory is None:
+                result = fn()
+                if result is not None:
+                    jax.block_until_ready(result)
+                tracemalloc.start()
+                result = fn()
+                if result is not None:
+                    jax.block_until_ready(result)
+                _, peak_memory = tracemalloc.get_traced_memory()
+                tracemalloc.stop()
 
         # Throughput
         throughput = op.throughput_count * 1e9 / mean if mean > 0 else 0
