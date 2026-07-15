@@ -221,12 +221,7 @@ class FrxBenchmark(abc.ABC):
         compilation cache, ``runtime`` with a warm one. In ``both`` the runtime
         memory is the max of the two phases.
         """
-        try:
-            import frx
-        except ModuleNotFoundError:
-            # Consumers still pinning the internal `jax` distribution that the
-            # public `frx` wheels are a rebrand of. Drop once they have moved.
-            import jax as frx
+        import frx
 
         device = frx.devices()[0]
         result_obj = BenchmarkResult(metadata=op.metadata)

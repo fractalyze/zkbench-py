@@ -121,15 +121,3 @@ def test_compile_phase_no_op_without_lower() -> None:
     res = FrxBenchmark._run_single_op(op, iterations=1, warmup=0, phase="compile")
     assert res.compile_time is None
     assert res.latency is None
-
-
-def test_falls_back_to_jax_when_frx_is_absent(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Consumers still pinning the internal `jax` distribution have no `frx` to
-    # import. None in sys.modules makes `import frx` raise ModuleNotFoundError,
-    # which is what an uninstalled frx does, so the fallback branch runs.
-    monkeypatch.setitem(sys.modules, "frx", None)
-    monkeypatch.setitem(sys.modules, "jax", _fake_backend())
-    op = BenchmarkOp(name="op", fn=lambda: None, measure_memory=False)
-    res = FrxBenchmark._run_single_op(op, iterations=2, warmup=1, phase="runtime")
-    assert res.latency is not None
-    assert res.iterations == 2
