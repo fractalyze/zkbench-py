@@ -14,9 +14,9 @@
 # ==============================================================================
 """zkbench - Reusable benchmarking library for zero-knowledge proofs."""
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
-from zkbench.benchmark import BenchmarkConfig, BenchmarkOp, JaxBenchmark
+from zkbench.benchmark import BenchmarkConfig, BenchmarkOp, FrxBenchmark
 from zkbench.schema import (
     BenchmarkReport,
     BenchmarkResult,
@@ -34,7 +34,7 @@ __all__ = [
     "BenchmarkOp",
     "BenchmarkReport",
     "BenchmarkResult",
-    "JaxBenchmark",
+    "FrxBenchmark",
     "Metadata",
     "MetricValue",
     "Platform",

@@ -21,7 +21,7 @@ import types
 
 import pytest
 
-from zkbench.benchmark import BenchmarkOp, JaxBenchmark, _device_peak_bytes
+from zkbench.benchmark import BenchmarkOp, FrxBenchmark, _device_peak_bytes
 
 
 class _FakeDevice:
@@ -80,7 +80,7 @@ class _FakeLowered:
 def test_compile_phase_only_times_the_compile() -> None:
     log: list[str] = []
     op = BenchmarkOp(name="op", fn=lambda: None, lower=lambda: _FakeLowered(log))
-    res = JaxBenchmark._run_single_op(op, iterations=2, warmup=1, phase="compile")
+    res = FrxBenchmark._run_single_op(op, iterations=2, warmup=1, phase="compile")
     assert log == ["compiled"]  # lowered.compile() ran
     assert res.compile_time is not None
     assert res.latency is None  # runtime phase skipped
@@ -90,7 +90,7 @@ def test_compile_phase_only_times_the_compile() -> None:
 @pytest.mark.usefixtures("fake_jax")
 def test_runtime_phase_skips_compile() -> None:
     op = BenchmarkOp(name="op", fn=lambda: None, measure_memory=False)
-    res = JaxBenchmark._run_single_op(op, iterations=2, warmup=1, phase="runtime")
+    res = FrxBenchmark._run_single_op(op, iterations=2, warmup=1, phase="runtime")
     assert res.latency is not None
     assert res.iterations == 2
     assert res.compile_time is None
@@ -105,7 +105,7 @@ def test_both_phases_populate_compile_and_runtime() -> None:
         measure_memory=False,
         lower=lambda: _FakeLowered(log),
     )
-    res = JaxBenchmark._run_single_op(op, iterations=2, warmup=1, phase="both")
+    res = FrxBenchmark._run_single_op(op, iterations=2, warmup=1, phase="both")
     assert log == ["compiled"]
     assert res.compile_time is not None
     assert res.latency is not None
@@ -115,6 +115,6 @@ def test_both_phases_populate_compile_and_runtime() -> None:
 def test_compile_phase_no_op_without_lower() -> None:
     # An op without a lower thunk has no compile phase to measure.
     op = BenchmarkOp(name="op", fn=lambda: None, measure_memory=False)
-    res = JaxBenchmark._run_single_op(op, iterations=1, warmup=0, phase="compile")
+    res = FrxBenchmark._run_single_op(op, iterations=1, warmup=0, phase="compile")
     assert res.compile_time is None
     assert res.latency is None

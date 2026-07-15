@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Reusable base class for JAX benchmarks.
+"""Reusable base class for FRX benchmarks.
 
-Provides ``JaxBenchmark``, a template-method ABC that handles warmup, timing,
+Provides ``FrxBenchmark``, a template-method ABC that handles warmup, timing,
 memory measurement, statistics, verification, CLI parsing, and JSON output so
 that concrete benchmarks only need to define ``get_config`` and ``get_ops``.
 """
@@ -55,7 +55,7 @@ class BenchmarkOp:
 
     Attributes:
         name: Benchmark key in the output report (e.g. ``"dft_2p20"``).
-        fn: Zero-arg callable that performs the JAX operation and returns its
+        fn: Zero-arg callable that performs the FRX operation and returns its
             result.  The result is passed to ``jax.block_until_ready`` after
             each call unless it is ``None``.
         metadata: Extra key-value pairs written to ``BenchmarkResult.metadata``.
@@ -108,8 +108,8 @@ _COMPILE_PHASES = ("compile", "both")
 _RUNTIME_PHASES = ("runtime", "both")
 
 
-class JaxBenchmark(abc.ABC):
-    """Template-method base class for JAX benchmarks."""
+class FrxBenchmark(abc.ABC):
+    """Template-method base class for FRX benchmarks."""
 
     @abc.abstractmethod
     def get_config(self) -> BenchmarkConfig:
@@ -221,6 +221,11 @@ class JaxBenchmark(abc.ABC):
         compilation cache, ``runtime`` with a warm one. In ``both`` the runtime
         memory is the max of the two phases.
         """
+        # Imported as `jax`, not `frx`: this resolves under both distributions.
+        # Consumers pinning `jax` get it directly; consumers pinning `frx` get it
+        # through the alias frx's __init__ installs, which is already in place
+        # because their benchmark `fn` imported frx to build the op. Importing
+        # `frx` here would instead hard-fail for every jax-pinned consumer.
         import jax
 
         device = jax.devices()[0]
