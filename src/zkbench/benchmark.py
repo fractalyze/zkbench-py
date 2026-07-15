@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Reusable base class for JAX benchmarks.
+"""Reusable base class for FRX benchmarks.
 
-Provides ``JaxBenchmark``, a template-method ABC that handles warmup, timing,
+Provides ``FrxBenchmark``, a template-method ABC that handles warmup, timing,
 memory measurement, statistics, verification, CLI parsing, and JSON output so
 that concrete benchmarks only need to define ``get_config`` and ``get_ops``.
 """
@@ -55,8 +55,8 @@ class BenchmarkOp:
 
     Attributes:
         name: Benchmark key in the output report (e.g. ``"dft_2p20"``).
-        fn: Zero-arg callable that performs the JAX operation and returns its
-            result.  The result is passed to ``jax.block_until_ready`` after
+        fn: Zero-arg callable that performs the FRX operation and returns its
+            result.  The result is passed to ``frx.block_until_ready`` after
             each call unless it is ``None``.
         metadata: Extra key-value pairs written to ``BenchmarkResult.metadata``.
         throughput_unit: Unit string for the throughput metric.
@@ -71,7 +71,7 @@ class BenchmarkOp:
             mark on a GPU backend (``Device.memory_stats``) and the host
             ``tracemalloc`` peak otherwise — so a device prove reports the GPU
             memory that actually matters rather than a near-zero host figure.
-        lower: Optional zero-arg thunk returning a ``jax.stages.Lowered`` (e.g.
+        lower: Optional zero-arg thunk returning a ``frx.stages.Lowered`` (e.g.
             ``lambda: jitted_fn.lower(*args)``). When present, the ``compile``
             phase times ``lowered.compile()`` and records its device-memory peak
             as ``compile_time`` / ``compile_memory`` — the compile-side analogue
@@ -108,8 +108,8 @@ _COMPILE_PHASES = ("compile", "both")
 _RUNTIME_PHASES = ("runtime", "both")
 
 
-class JaxBenchmark(abc.ABC):
-    """Template-method base class for JAX benchmarks."""
+class FrxBenchmark(abc.ABC):
+    """Template-method base class for FRX benchmarks."""
 
     @abc.abstractmethod
     def get_config(self) -> BenchmarkConfig:
@@ -221,9 +221,14 @@ class JaxBenchmark(abc.ABC):
         compilation cache, ``runtime`` with a warm one. In ``both`` the runtime
         memory is the max of the two phases.
         """
-        import jax
+        try:
+            import frx
+        except ModuleNotFoundError:
+            # Consumers still pinning the internal `jax` distribution that the
+            # public `frx` wheels are a rebrand of. Drop once they have moved.
+            import jax as frx
 
-        device = jax.devices()[0]
+        device = frx.devices()[0]
         result_obj = BenchmarkResult(metadata=op.metadata)
 
         # Compile phase: time the lower->executable compile and its device peak
@@ -251,7 +256,7 @@ class JaxBenchmark(abc.ABC):
         for _ in range(warmup):
             result = fn()
             if result is not None:
-                jax.block_until_ready(result)
+                frx.block_until_ready(result)
 
         # Timing
         latencies: list[float] = []
@@ -259,7 +264,7 @@ class JaxBenchmark(abc.ABC):
             start = time.perf_counter_ns()
             result = fn()
             if result is not None:
-                jax.block_until_ready(result)
+                frx.block_until_ready(result)
             end = time.perf_counter_ns()
             latencies.append(end - start)
 
@@ -275,11 +280,11 @@ class JaxBenchmark(abc.ABC):
             if peak_memory is None:
                 result = fn()
                 if result is not None:
-                    jax.block_until_ready(result)
+                    frx.block_until_ready(result)
                 tracemalloc.start()
                 result = fn()
                 if result is not None:
-                    jax.block_until_ready(result)
+                    frx.block_until_ready(result)
                 _, peak_memory = tracemalloc.get_traced_memory()
                 tracemalloc.stop()
 
