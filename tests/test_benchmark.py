@@ -52,19 +52,22 @@ def test_none_when_device_lacks_memory_stats() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Phase selection in _run_single_op. zkbench imports jax lazily so the library
-# doesn't hard-depend on it; these inject a fake jax so the phase branching is
-# exercised without a real backend.
+# Phase selection in _run_single_op. zkbench imports the backend lazily so the
+# library doesn't hard-depend on it; these inject a fake one so the phase
+# branching is exercised without a real backend.
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture
-def fake_jax(monkeypatch: pytest.MonkeyPatch) -> None:
-    jax = types.SimpleNamespace(
+def _fake_backend() -> types.SimpleNamespace:
+    return types.SimpleNamespace(
         devices=lambda: [object()],  # no memory_stats -> device peak is None
         block_until_ready=lambda x: x,
     )
-    monkeypatch.setitem(sys.modules, "jax", jax)
+
+
+@pytest.fixture
+def fake_frx(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(sys.modules, "frx", _fake_backend())
 
 
 class _FakeLowered:
@@ -76,7 +79,7 @@ class _FakeLowered:
         return object()
 
 
-@pytest.mark.usefixtures("fake_jax")
+@pytest.mark.usefixtures("fake_frx")
 def test_compile_phase_only_times_the_compile() -> None:
     log: list[str] = []
     op = BenchmarkOp(name="op", fn=lambda: None, lower=lambda: _FakeLowered(log))
@@ -87,7 +90,7 @@ def test_compile_phase_only_times_the_compile() -> None:
     assert res.iterations == 0
 
 
-@pytest.mark.usefixtures("fake_jax")
+@pytest.mark.usefixtures("fake_frx")
 def test_runtime_phase_skips_compile() -> None:
     op = BenchmarkOp(name="op", fn=lambda: None, measure_memory=False)
     res = FrxBenchmark._run_single_op(op, iterations=2, warmup=1, phase="runtime")
@@ -96,7 +99,7 @@ def test_runtime_phase_skips_compile() -> None:
     assert res.compile_time is None
 
 
-@pytest.mark.usefixtures("fake_jax")
+@pytest.mark.usefixtures("fake_frx")
 def test_both_phases_populate_compile_and_runtime() -> None:
     log: list[str] = []
     op = BenchmarkOp(
@@ -111,10 +114,22 @@ def test_both_phases_populate_compile_and_runtime() -> None:
     assert res.latency is not None
 
 
-@pytest.mark.usefixtures("fake_jax")
+@pytest.mark.usefixtures("fake_frx")
 def test_compile_phase_no_op_without_lower() -> None:
     # An op without a lower thunk has no compile phase to measure.
     op = BenchmarkOp(name="op", fn=lambda: None, measure_memory=False)
     res = FrxBenchmark._run_single_op(op, iterations=1, warmup=0, phase="compile")
     assert res.compile_time is None
     assert res.latency is None
+
+
+def test_falls_back_to_jax_when_frx_is_absent(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Consumers still pinning the internal `jax` distribution have no `frx` to
+    # import. None in sys.modules makes `import frx` raise ModuleNotFoundError,
+    # which is what an uninstalled frx does, so the fallback branch runs.
+    monkeypatch.setitem(sys.modules, "frx", None)
+    monkeypatch.setitem(sys.modules, "jax", _fake_backend())
+    op = BenchmarkOp(name="op", fn=lambda: None, measure_memory=False)
+    res = FrxBenchmark._run_single_op(op, iterations=2, warmup=1, phase="runtime")
+    assert res.latency is not None
+    assert res.iterations == 2
