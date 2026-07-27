@@ -14,7 +14,18 @@
 # ==============================================================================
 """zkbench - Reusable benchmarking library for zero-knowledge proofs."""
 
-__version__ = "0.5.0"
+from importlib.metadata import PackageNotFoundError, version as _dist_version
+
+# Read from the installed distribution rather than restating pyproject.toml's
+# literal: the hardcoded copy this replaces sat at 0.5.0 while three releases
+# shipped past it, so every install reported a version it was not.
+try:
+    __version__ = _dist_version("zkbench")
+except PackageNotFoundError:
+    # Running from a source tree that was never installed (no dist-info to
+    # read). Only the metadata can answer this, so say so rather than guess a
+    # number that would be wrong the moment pyproject moves.
+    __version__ = "0.0.0+unknown"
 
 from zkbench.benchmark import BenchmarkConfig, BenchmarkOp, FrxBenchmark
 from zkbench.schema import (
